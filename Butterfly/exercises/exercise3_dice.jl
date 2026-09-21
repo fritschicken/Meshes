@@ -99,13 +99,9 @@ l = (d_nn/(N-1)-0.00002,d_nn/(N-1)+0.00002)
 # - bidirectional couplings between special sites and the two subdivided groups.
 model = 
     @onsite((; e = 0.0) -> e)+
-    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :E => :E) +
-    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :Ins => :Ins)+
-    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :S => :E) +
-    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :E => :S) +
-    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :S => :Ins) +
-    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :Ins => :S)
-
+    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :E .=> (:E, :S)) +
+    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :Ins .=> (:Ins, :S))+
+    @hopping((r, dr; t = 1.0, B = 0.0) -> -t * peierls(B, r, dr), range = l, sublats = :S .=> (:E, :S, :Ins))
 h = slat |>  model
 
 # Sweep magnetic flux and plot the Hofstadter spectrum.
@@ -118,5 +114,5 @@ butterfly = qplot(b, hide=:bands, color=:black)
 mesh = qplot(h)
 
 # Save the spectrum and a real-space view of the final finite lattice/model.
-save("Figures/dice_butterfly.png", butterfly)
-save("Figures/dice_mesh.png", mesh)
+save("Figures/metal/dice_butterfly.png", butterfly)
+save("Figures/metal/dice_mesh.png", mesh)
