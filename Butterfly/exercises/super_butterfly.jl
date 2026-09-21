@@ -189,9 +189,9 @@ phi_sc(r) = atan(r[2] - r0[2], r[1] - r0[1])
 flux_ratios = range(0.0, 1.0, length = 601)
 params = (; e = 0.0, t = 2.0)
 
-S_square = (a/(N))^2
-S_hex = (3 * sqrt(3) / 2) * (d_nn/(N))^2
-S_dice = (sqrt(3) / 2) * (d_nn/(N))^2
+S_square = (a)^2
+S_hex = (3 * sqrt(3) / 2) * (d_nn)^2
+S_dice = (sqrt(3) / 2) * (d_nn)^2
 
 save_case("square", square_ham(N, M, a, phi_sc), flux_ratios, S_square; params)
 save_case("hex", hex_ham(N, M, d_nn, phi_sc), flux_ratios, S_hex; params)
