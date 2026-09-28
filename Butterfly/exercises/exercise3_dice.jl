@@ -73,8 +73,8 @@ end
 # Geometry parameters.
 d_nn = 1.0
 a = sqrt(3) * d_nn
-M = 5
-N = 4
+M = 12
+N = 3
 A1 = SVector(a * cos(π/3), a * sin(π/3))
 A2 = SVector(a * cos(π/3), -a * sin(π/3))
 
@@ -107,12 +107,33 @@ h = slat |>  model
 # Sweep magnetic flux and plot the Hofstadter spectrum.
 flux_ratios = range(0.0, 1.0, length = 301)
 S_rom = (sqrt(3) / 2) * (d_nn^2)
-params = (; e = 0.0, t = 2.0)
-
-b = bands(h, flux_ratios; mapping = p_ratio -> ftuple(; params..., B = 2π* p_ratio / S_rom))
-butterfly = qplot(b, hide=:bands, color=:black)
 mesh = qplot(h)
 
 # Save the spectrum and a real-space view of the final finite lattice/model.
-save("Figures/metal/dice_butterfly.png", butterfly)
-save("Figures/metal/dice_mesh.png", mesh)
+ϵ = 0
+params = (; e = ϵ, t = 1)
+b = bands(h, flux_ratios; mapping = p_ratio -> ftuple(; params..., B = 2π* p_ratio / S_rom))
+
+
+center_0 = (A1+A2)
+hex_centers = [center_0 + i * A1 + j * A2 for i in 0:(M-2), j in 0:(M-2)][:]
+is_bulk(r) = multi_hexagon_region(r, hex_centers, d_nn)
+bulk_orbitals = findall(is_bulk, sites(lattice(h)))
+bulk_weight(ψ, ϵ, ϕs) = (sum(abs2, ψ[bulk_orbitals]) / sum(abs2, ψ))
+
+fig1 = qplot(
+    b;
+    hide = :bands,
+    color = :black,
+    axis = (; xlabel = "ϕ/ϕ₀"),
+)
+
+fig2 = qplot(
+    h(B=0.2),
+    siteopacity = (i, r) -> is_bulk(r) ? 1.0 : 0.0,
+)
+save("Figures/metal/dice_butterfly.png", fig1)
+
+
+save("Figures/metal/dice_mesh.png", fig2)
+
