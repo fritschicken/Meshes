@@ -1,5 +1,6 @@
 using Quantica, GLMakie, StaticArrays
 import Quantica.σ
+using Printf
 
 # lattice setup
 function _unit_coords_dice(N, d_nn)
@@ -73,6 +74,7 @@ function _dice_lattice(N, M, d_nn)
     slat = lat |> supercell(region = r -> _multi_hexagon_region(r, hex_centers, d_nn))
     return slat
 end
+
 function _unit_coords_square(N, a)
     coords = Tuple{Float64, Float64}[(0.0, 0.0)]
     for i in 1:(N - 2)
@@ -81,6 +83,7 @@ function _unit_coords_square(N, a)
     end
     return coords
 end
+
 function _square_lattice(N, M, a)
     pts = _unit_coords_square(N, a)
     lat = lattice(sublat(pts), bravais = ([0.0, a], [a, 0.0]))
@@ -126,73 +129,141 @@ function _hex_lattice(N, M, d_nn)
     return slat
 end
 
-function hex_ham(N, M, d_nn, phi_sc)
-    _theta_hex(r, dr, B)= σ.z .* (-B/2 * SA[-r[2], r[1]]' * dr + (phi_sc(r + dr) - phi_sc(r))/2)
+function _pairing_phase(r, ϕ)
+    return ϕ*(div(r[1],1))
+end
 
-    hopping_model = @hopping((r, dr; t = 1.0, B = 0.0) -> -t * cis(_theta_hex(r, dr, B)); range = d_nn/(N-1)+0.00002)
-    onsite_model = @onsite((r; e = 0.0, del = 0.5) -> e *σ.z +  del * σ.x)
+function hex_ham(N, M, d_nn)
+    _theta(r, dr, B)= -B/2 * SA[-r[2], r[1]]' * dr
+
+    hopping_model = @hopping((r, dr; t = 1.0, B = 0.0) -> begin
+        θ = _theta(r, dr, B)
+        return SA[-t * cis(-θ)      0.0;
+                   0.0         +t * cis(θ)]
+    end; range = d_nn/(N-1)+0.00002)
+
+    onsite_model = @onsite((r; e = 0.0, del = 0.5, ϕ = 0) -> begin
+        phase = _pairing_phase(r, ϕ)
+        return SA[e                  del * cis(phase); 
+                  del * cis(-phase)     -e]
+    end)
 
     lat = _hex_lattice(N, M, d_nn)
     h = hamiltonian(lat, onsite_model+hopping_model, orbitals=2)
     return h
 end
 
+function dice_ham(N, M, d_nn)
+    _theta(r, dr, B) = (B / 2) * (r[1] * dr[2] - r[2] * dr[1])
+    l = (d_nn/(N-1) - 1e-4, d_nn/(N-1) + 1e-4)
 
-function dice_ham(N, M, d_nn, phi_sc)
-    _theta_hex(r, dr, B)= σ.z .* (-B/2 * SA[-r[2], r[1]]' * dr + (phi_sc(r + dr) - phi_sc(r))/2)
-    l = (d_nn / (N - 1) - 0.00002, d_nn / (N - 1) + 0.00002)
+    sublat_pairs = (:E => :E, :Ins => :Ins, :S => :S, :E => :S, :Ins => :S)
 
-    onsite_model = @onsite((r; e = 0.0, del = 0.5) -> e *σ.z +  del * σ.x)
+    hopping_model = @hopping((r, dr; t = 1.0, B = 0.0) -> begin
+        θ = _theta(r, dr, B)
+        return SA[-t * cis(-θ)      0.0;
+                   0.0         +t * cis(θ)]
+    end; range = l, sublats = sublat_pairs)
 
-    hopping_model=
-        @hopping((r, dr; t = 1.0, B = 0.0) -> -t * cis(_theta_hex(r, dr, B)); range = l, sublats = :E .=> (:E, :S)) +
-        @hopping((r, dr; t = 1.0, B = 0.0) -> -t * cis(_theta_hex(r, dr, B)); range = l, sublats = :Ins .=> (:Ins, :S))+
-        @hopping((r, dr; t = 1.0, B = 0.0) -> -t * cis(_theta_hex(r, dr, B)); range = l, sublats = :S .=> (:E, :S, :Ins))
-    
+    onsite_model = @onsite((r; e = 0.0, del = 0.5, ϕ = 0) -> begin
+        phase = _pairing_phase(r, ϕ)
+        return SA[e                  del * cis(phase);
+                  del * cis(-phase)     -e]
+    end)
+
     lat = _dice_lattice(N, M, d_nn)
-    h = hamiltonian(lat, onsite_model+hopping_model, orbitals=2)
+    h = hamiltonian(lat, onsite_model + hopping_model)
     return h
 end
 
-function square_ham(N, M, a, phi_sc)
-    theta_square(r, dr, B) =
-        σ.z .* (-B * r[2] * dr[1] + (phi_sc(r + dr) - phi_sc(r)) / 2)
+function square_ham(N, M, a)
+        _theta(r, dr, B)= -B/2 * SA[-r[2], r[1]]' * dr
+        hopping_model = @hopping((r, dr; t = 1.0, B = 0.0) -> begin
+            θ = _theta(r, dr, B)
+            return SA[-t * cis(-θ)      0.0;
+                    0.0         +t * cis(θ)]
+        end; range = a/(N-1)+0.00002)
 
-    onsite_model = @onsite((r; e = 0.0, del = 0.5) -> e * σ.z + del * σ.x)
-    hopping_model = @hopping(
-        (r, dr; t = 1.0, B = 0.0) -> -t * cis(theta_square(r, dr, B));
-        range = a / (N - 1) + 0.00002,
-    )
+        onsite_model = @onsite((r; e = 0.0, del = 0.5, ϕ = 0) -> begin
+            phase = _pairing_phase(r, ϕ)
+            return SA[e                  del * cis(phase); 
+                    del * cis(-phase)     -e]
+        end)
 
-    lat = _square_lattice(N, M, a)
-    h = hamiltonian(lat, onsite_model + hopping_model, orbitals = 2)
-    return h
+        lat = _square_lattice(N, M, a)
+        h = hamiltonian(lat, onsite_model+hopping_model, orbitals=2)
+        return h
 end
 
-function save_case(name, h, flux_ratios, S; params = (; e = 0.0, t = 2.0))
+function save_case(name, h, flux_ratios, S, mu; params = (; e = 0.0, t = 2.0))
     b = bands(h, flux_ratios; mapping = p_ratio -> ftuple(; params..., B = 2π * p_ratio / S))
     butterfly = qplot(b, hide=:bands, color=:black, axis = (; xlabel = "ϕ/ϕ₀"))
-    mesh = qplot(h)
-
-    save("Figures/superc/$(name)_super_butterfly.png", butterfly; px_per_unit = 1)
-    save("Figures/superc/$(name)_super_mesh.png", mesh; px_per_unit = 1)
+    save("Figures/superc/$(name)_super_butterfly_mu$(mu).png", butterfly; px_per_unit = 1)
 end
 
 #example usage
 d_nn = 1.0
-a = 1.0
-M = 3
+a = a = sqrt(3) * d_nn
+M =4
 N = 3
-const r0 = (10.0 * a, 10.0 * a)
-phi_sc(r) = atan(r[2] - r0[2], r[1] - r0[1])
+t = 1
+δμ = 2
+ϵ = 2*t + δμ
+phi_sc = pi/4
+del = 0.1
+params = (; e = ϵ, t = t, del=del, ϕ = phi_sc)
 
-flux_ratios = range(0.0, 1.0, length = 601)
-params = (; e = 0.0, t = 2.0)
 
-S_square = (a)^2
+flux_ratios = range(-1.0, 1.0, length = 601)
+
+S_square = (d_nn)^2
 S_hex = (3 * sqrt(3) / 2) * (d_nn)^2
 S_dice = (sqrt(3) / 2) * (d_nn)^2
 
-save_case("square", square_ham(N, M, a, phi_sc), flux_ratios, S_square; params)
-save_case("hex", hex_ham(N, M, d_nn, phi_sc), flux_ratios, S_hex; params)
-save_case("dice", dice_ham(N, M, d_nn, phi_sc), flux_ratios, S_dice; params)
+hs = square_ham(N,M,d_nn)
+params = (; e = ϵ, t = t, del=del, ϕ = phi_sc)
+#hs2 = square_ham(N,M,1)(params)
+bs = bands(hs, flux_ratios; mapping = p_ratio -> ftuple(; params..., B = 2π* p_ratio / S_square))
+
+edge_tol = d_nn / (N - 1) / 2
+is_bulk(r) = edge_tol < r[1] < M * d_nn - edge_tol && edge_tol < r[2] < M * d_nn - edge_tol
+bulk_orbitals = findall(is_bulk, sites(lattice(hs)))
+bulk_weight(ψ, ϵ, ϕs) = (sum(abs2, ψ[bulk_orbitals]) / sum(abs2, ψ))
+
+
+fig2 = qplot(
+    bs;
+    hide = :bands,
+    color = :black,
+    axis = (; xlabel = "ϕ/ϕ₀"),
+    opacity = ranged(bulk_weight, (0.0, 1.0)),
+    markersize=0.5,
+)
+
+path = @sprintf("./Figures/superc/supi_sq_%.2f_%s_%.2f.png", del, δμ, phi_sc)
+save(path, fig2)
+
+
+
+"""h = hex_ham(N,M,d_nn, phi_sc)
+b = bands(h, flux_ratios; mapping = p_ratio -> ftuple(; params..., B = 2π* p_ratio / S_hex))
+
+A1 = SVector(a * cos(π/3), a * sin(π/3))
+A2 = SVector(a * cos(π/3), -a * sin(π/3))
+center_0 = (A1+A2)
+hex_centers = [center_0 + i * A1 + j * A2 for i in 0:(M-2), j in 0:(M-2)][:]
+
+is_bulk(r) = _multi_hexagon_region(r, hex_centers, d_nn)
+bulk_orbitals = findall(is_bulk, sites(lattice(h)))
+bulk_weight(ψ, ϵ, ϕs) = (sum(abs2, ψ[bulk_orbitals]) / sum(abs2, ψ))^2
+
+fig1 = qplot(
+    b;
+    hide = :bands,
+    color = :black,
+    axis = (; xlabel = "ϕ/ϕ₀"),
+     opacity = ranged(bulk_weight, (0.0, 1.0))
+)
+
+save("./Figures/superc/supi_$(δμ).png",fig1)"""
+
