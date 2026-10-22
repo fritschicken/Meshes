@@ -27,7 +27,7 @@ Parameters you will usually change:
 
 ## Requirements
 
-Julia 1.10 or newer. The exact package versions are recorded in `Project.toml` and `Manifest.toml`. To install them, run this from the repo folder:
+Julia 1.13 (the `Manifest.toml` was generated with it; older versions may need `] resolve`). The exact package versions are recorded in `Project.toml` and `Manifest.toml`. To install them, run this from the repo folder:
 
 ```
 julia --project
