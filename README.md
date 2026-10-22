@@ -6,7 +6,7 @@ Each mesh is a finite lattice whose bonds are 1D tight-binding wires: every near
 
 ## Contents
 
-All scripts are in [`Butterfly/exercises/`](Butterfly/exercises):
+All scripts are in [`exercises/`](exercises):
 
 | Script | What it does |
 |---|---|
@@ -27,21 +27,20 @@ Parameters you will usually change:
 
 ## Requirements
 
-Julia 1.10 or newer, plus these packages:
+Julia 1.10 or newer. The exact package versions are recorded in `Project.toml` and `Manifest.toml`. To install them, run this from the repo folder:
 
-```julia
-using Pkg
-Pkg.add(["Quantica", "GLMakie", "StaticArrays"])
+```
+julia --project
+] instantiate
 ```
 
 ## Usage
 
-The scripts save figures with relative paths such as `Figures/metal/...` and `Figures/superc/...`, so run them from the `Butterfly/` folder:
+The scripts save figures with relative paths such as `Figures/metal/...` and `Figures/superc/...`, so run them from the repo folder:
 
 ```bash
-cd Butterfly
 mkdir -p Figures/metal Figures/superc
-julia exercises/exercise3.jl
+julia --project exercises/exercise3.jl
 ```
 
 Or open a script in VS Code with the Julia extension and run it interactively.
